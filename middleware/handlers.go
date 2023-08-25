@@ -194,14 +194,14 @@ func insertUser(user models.User) int64 {
 
 	// create the insert sql query
 	// returning userid will return the id of the inserted user
-	sqlStatement := `INSERT INTO users (name, location, age) VALUES ($1, $2, $3) RETURNING userid`
+	sqlStatement := `INSERT INTO users (username, password, location) VALUES ($1, $2, $3) RETURNING id`
 
 	// the inserted id will store in this id
 	var id int64
 
 	// execute the sql statement
 	// Scan function will save the insert id in the id
-	err := db.QueryRow(sqlStatement, user.Username, user.Location).Scan(&id)
+	err := db.QueryRow(sqlStatement, user.Username, user.Password, user.Location).Scan(&id)
 
 	if err != nil {
 		log.Fatalf("Unable to execute the query. %v", err)
@@ -225,13 +225,13 @@ func getUser(id int64) (models.User, error) {
 	var user models.User
 
 	// create the select sql query
-	sqlStatement := `SELECT * FROM users WHERE userid=$1`
+	sqlStatement := `SELECT * FROM users WHERE id=$1`
 
 	// execute the sql statement
 	row := db.QueryRow(sqlStatement, id)
 
 	// unmarshal the row object to user
-	err := row.Scan(&user.ID, &user.Username, &user.Location)
+	err := row.Scan(&user.ID, &user.Username, &user.Password, &user.Email, &user.Email_is, &user.Token, &user.Location)
 
 	switch err {
 	case sql.ErrNoRows:
@@ -275,7 +275,7 @@ func getAllUsers() ([]models.User, error) {
 		var user models.User
 
 		// unmarshal the row object to user
-		err = rows.Scan(&user.ID, &user.Username, &user.Location)
+		err = rows.Scan(&user.ID, &user.Username, &user.Password, &user.Email, &user.Email_is, &user.Token, &user.Location)
 
 		if err != nil {
 			log.Fatalf("Unable to scan the row. %v", err)
@@ -331,7 +331,7 @@ func deleteUser(id int64) int64 {
 	defer db.Close()
 
 	// create the delete sql query
-	sqlStatement := `DELETE FROM users WHERE userid=$1`
+	sqlStatement := `DELETE FROM users WHERE id=$1`
 
 	// execute the sql statement
 	res, err := db.Exec(sqlStatement, id)

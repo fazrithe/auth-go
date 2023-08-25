@@ -1,7 +1,7 @@
 package router
 
 import (
-	"go-postgres/middleware"
+	"github.com/fazrithe/auth-go/middleware"
 
 	"github.com/gorilla/mux"
 )
