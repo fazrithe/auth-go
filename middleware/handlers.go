@@ -2,19 +2,20 @@ package middleware
 
 import (
 	"database/sql"
-	"encoding/json" // package to encode and decode the json into struct and vice versa
+	"encoding/json"
 	"fmt"
 	"log"
-	"net/http" // used to access the request and response object of the api
-	"os"       // used to read the environment variable
-	"strconv"  // package used to covert string into int type
+	"net/http"
+	"os"
+	"strconv"
 
-	"github.com/fazrithe/auth-go/models" // models package where User schema is defined
+	"github.com/fazrithe/auth-go/models"
+	"gopkg.in/gomail.v2"
 
-	"github.com/gorilla/mux" // used to get the params from the route
+	"github.com/gorilla/mux"
 
-	"github.com/joho/godotenv" // package used to read the .env file
-	_ "github.com/lib/pq"      // postgres golang driver
+	"github.com/joho/godotenv"
+	_ "github.com/lib/pq"
 )
 
 // response format
@@ -300,7 +301,7 @@ func updateUser(id int64, user models.User) int64 {
 	defer db.Close()
 
 	// create the update sql query
-	sqlStatement := `UPDATE users SET name=$2, location=$3, age=$4 WHERE userid=$1`
+	sqlStatement := `UPDATE users SET username=$2, location=$3, WHERE id=$1`
 
 	// execute the sql statement
 	res, err := db.Exec(sqlStatement, id, user.Username, user.Location)
@@ -332,6 +333,163 @@ func deleteUser(id int64) int64 {
 
 	// create the delete sql query
 	sqlStatement := `DELETE FROM users WHERE id=$1`
+
+	// execute the sql statement
+	res, err := db.Exec(sqlStatement, id)
+
+	if err != nil {
+		log.Fatalf("Unable to execute the query. %v", err)
+	}
+
+	// check how many rows affected
+	rowsAffected, err := res.RowsAffected()
+
+	if err != nil {
+		log.Fatalf("Error while checking the affected rows. %v", err)
+	}
+
+	fmt.Printf("Total rows/record affected %v", rowsAffected)
+
+	return rowsAffected
+}
+
+const CONFIG_SMTP_HOST = "mail.mantanprogrammer.com"
+const CONFIG_SMTP_PORT = 587
+const CONFIG_SENDER_NAME = "BKN <fazri@mantanprogrammer.com>"
+const CONFIG_AUTH_EMAIL = "fazri@mantanprogrammer.com"
+const CONFIG_AUTH_PASSWORD = "mantan@99"
+
+func SendEmail(w http.ResponseWriter, r *http.Request) {
+	// Sender data.
+	// from := "fazri@mantanprogrammer.com"
+	// password := "mantan@99"
+
+	// // Receiver email address.
+	// to := []string{
+	// 	"fazrithe@gmail.com",
+	// }
+
+	// // smtp server configuration.
+	// smtpHost := "mail.mantanprogrammer.com"
+	// smtpPort := "587"
+
+	mailer := gomail.NewMessage()
+	mailer.SetHeader("From", CONFIG_SENDER_NAME)
+	mailer.SetHeader("To", "fazrithe@gmail.com")
+	mailer.SetAddressHeader("Cc", "cyberfazri@gmail.com", "Tra Lala La")
+	mailer.SetHeader("Subject", "Konfirmasi Email")
+	mailer.SetBody("text/html", "<a href=''><button>Active</button></a>")
+	mailer.Attach("./bkn.png")
+
+	dialer := gomail.NewDialer(
+		CONFIG_SMTP_HOST,
+		CONFIG_SMTP_PORT,
+		CONFIG_AUTH_EMAIL,
+		CONFIG_AUTH_PASSWORD,
+	)
+
+	err := dialer.DialAndSend(mailer)
+	if err != nil {
+		log.Fatal(err.Error())
+	}
+
+	id := 1
+
+	updatedRows := sendEmailUpdate(int64(id))
+
+	msg := fmt.Sprintf("User updated successfully. Total rows/record affected %v", updatedRows)
+
+	// format the response message
+	res := response{
+		ID:      int64(id),
+		Message: msg,
+	}
+
+	// send the response
+	json.NewEncoder(w).Encode(res)
+}
+
+// Email Confirmation
+func sendEmailUpdate(id int64) int64 {
+
+	// create the postgres db connection
+	db := createConnection()
+
+	// close the db connection
+	defer db.Close()
+
+	// create the update sql query
+	sqlStatement := `UPDATE users SET email_is=0 WHERE id=$1`
+
+	// execute the sql statement
+	res, err := db.Exec(sqlStatement, id)
+
+	if err != nil {
+		log.Fatalf("Unable to execute the query. %v", err)
+	}
+
+	// check how many rows affected
+	rowsAffected, err := res.RowsAffected()
+
+	if err != nil {
+		log.Fatalf("Error while checking the affected rows. %v", err)
+	}
+
+	fmt.Printf("Total rows/record affected %v", rowsAffected)
+
+	return rowsAffected
+}
+
+// email confirmation
+func ConfirmEmail(w http.ResponseWriter, r *http.Request) {
+
+	// get the userid from the request params, key is "id"
+	params := mux.Vars(r)
+
+	// convert the id type from string to int
+	id, err := strconv.Atoi(params["id"])
+
+	if err != nil {
+		log.Fatalf("Unable to convert the string into int.  %v", err)
+	}
+
+	// create an empty user of type models.User
+	// var user models.User
+
+	// decode the json request to user
+	// err = json.NewDecoder(r.Body).Decode(&user)
+
+	// if err != nil {
+	// 	log.Fatalf("Unable to decode the request body.  %v", err)
+	// }
+
+	// call update user to update the user
+	updatedRows := confirmEmail(int64(id))
+
+	// format the message string
+	msg := fmt.Sprintf("User updated successfully. Total rows/record affected %v", updatedRows)
+
+	// format the response message
+	res := response{
+		ID:      int64(id),
+		Message: msg,
+	}
+
+	// send the response
+	json.NewEncoder(w).Encode(res)
+}
+
+// Email Confirmation
+func confirmEmail(id int64) int64 {
+
+	// create the postgres db connection
+	db := createConnection()
+
+	// close the db connection
+	defer db.Close()
+
+	// create the update sql query
+	sqlStatement := `UPDATE users SET email_is=1 WHERE id=$1`
 
 	// execute the sql statement
 	res, err := db.Exec(sqlStatement, id)
