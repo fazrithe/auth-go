@@ -359,7 +359,8 @@ const CONFIG_SENDER_NAME = "BKN <fazri@mantanprogrammer.com>"
 const CONFIG_AUTH_EMAIL = "fazri@mantanprogrammer.com"
 const CONFIG_AUTH_PASSWORD = "mantan@99"
 
-func SendEmail(w http.ResponseWriter, r *http.Request) {
+// func SendEmail(w http.ResponseWriter, r *http.Request) {
+func SendEmail(id int64, user models.User) int64 {
 	// Sender data.
 	// from := "fazri@mantanprogrammer.com"
 	// password := "mantan@99"
@@ -373,9 +374,11 @@ func SendEmail(w http.ResponseWriter, r *http.Request) {
 	// smtpHost := "mail.mantanprogrammer.com"
 	// smtpPort := "587"
 
+	// call insert user function and pass the user
+
 	mailer := gomail.NewMessage()
 	mailer.SetHeader("From", CONFIG_SENDER_NAME)
-	mailer.SetHeader("To", "fazrithe@gmail.com")
+	mailer.SetHeader("To", user.Email)
 	mailer.SetAddressHeader("Cc", "cyberfazri@gmail.com", "Tra Lala La")
 	mailer.SetHeader("Subject", "Konfirmasi Email")
 	mailer.SetBody("text/html", "<a href=''><button>Active</button></a>")
@@ -393,20 +396,32 @@ func SendEmail(w http.ResponseWriter, r *http.Request) {
 		log.Fatal(err.Error())
 	}
 
-	id := 1
+	// create the postgres db connection
+	db := createConnection()
 
-	updatedRows := sendEmailUpdate(int64(id))
+	// close the db connection
+	defer db.Close()
 
-	msg := fmt.Sprintf("User updated successfully. Total rows/record affected %v", updatedRows)
+	// create the update sql query
+	sqlStatement := `UPDATE users SET email=$2, WHERE id=$1`
 
-	// format the response message
-	res := response{
-		ID:      int64(id),
-		Message: msg,
+	// execute the sql statement
+	res, err := db.Exec(sqlStatement, id, user.Email)
+
+	if err != nil {
+		log.Fatalf("Unable to execute the query. %v", err)
 	}
 
-	// send the response
-	json.NewEncoder(w).Encode(res)
+	// check how many rows affected
+	rowsAffected, err := res.RowsAffected()
+
+	if err != nil {
+		log.Fatalf("Error while checking the affected rows. %v", err)
+	}
+
+	fmt.Printf("Total rows/record affected %v", rowsAffected)
+
+	return rowsAffected
 }
 
 // Email Confirmation
